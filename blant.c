@@ -643,8 +643,8 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
-int alphaListPopulate(char *BUF, int *alpha_list, int k) {
-	sprintf(BUF, CANON_DIR "/alpha_list_mcmc%d.txt", k);
+int alphaListPopulate(char *BUF, int *alpha_list, int k, char* algorithm) {
+	sprintf(BUF, CANON_DIR "/alpha_list_%s%d.txt", algorithm, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s/alpha_list%d.txt\n", CANON_DIR, k);
     int numAlphas, i;
@@ -799,7 +799,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	//The multiplier is a shorthand for d graphlet degree product, It is obtained by multiplying the degrees
 	//of all the graphlets in the sliding window.
 	int node, numNodes = 0, i, j, graphletDegree;
-	long long multiplier = 1;
+	double multiplier = 1;
 	SetEmpty(V);
 
 	for (i = 0; i < _MCMC_L; i++) {
@@ -845,7 +845,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 }
 
 //Converts the decimal frequencies of graphlets to concentrations (sum to 1).
-void finalizeMCMC() {
+void finalizeConcentrations() {
 	double totalConcentration = 0;
 	int i;
 	for (i = 0; i < _numCanon; i++) {
@@ -859,17 +859,16 @@ void finalizeMCMC() {
 	}
 }
 
-// Loads alpha values(overcounting ratios) for MCMC sampling from files
+// Loads alpha values(overcounting ratios) for each graphlet for the given algorithm
 // The alpha value represents the number of ways to walk over that graphlet
-// Global variable _MCMC_L is needed by many functions
+// Global variable _MCMC_L is needed by many MCMC functions
 // _MCMC_L represents the length of the sliding window in d graphlets for sampling
-// Global variable _numSamples needed for the algorithm to reseed halfway through
-// Concentrations are initialized to 0
-void initializeMCMC(int k, int numSamples) {
+// Global variable _numSamples needed for the algorithm to reseed after a given amount of time
+void initializeAlphas(int k, int numSamples, char* algorithm) {
 	_MCMC_L = k - mcmc_d  + 1;
-	char BUF[BUFSIZ];
 	_numSamples = numSamples;
-	alphaListPopulate(BUF, _alphaList, k);
+	char BUF[BUFSIZ];
+	alphaListPopulate(BUF, _alphaList, k, algorithm);
 	int i;
 	for (i = 0; i < _numCanon; i++)
 	{
@@ -1065,6 +1064,14 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    static SET* printed;
 	case graphletFrequency:
 	    ++_graphletCount[GintCanon];
+		if (_sampleMethod == SAMPLE_NODE_EXPANSION) {
+			double multiplier = 1.0;
+			int i;
+			for (i = 0; i < k; i++) {
+				multiplier *= G->degree[Varray[i]];
+			}
+			_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
+		}
 	    break;
 	case indexGraphlets:
 	    memset(perm, 0, k);
@@ -1127,14 +1134,16 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
 	if (_sampleMethod == SAMPLE_MCMC)
-		initializeMCMC(k, numSamples);
+		initializeAlphas(k, numSamples, "mcmc");
+	else if (_sampleMethod == SAMPLE_NODE_EXPANSION)
+		initializeAlphas(k, numSamples, "nbe");
     for(i=0; i<numSamples; i++)
     {
 	SampleGraphlet(G, V, Varray, k);
 	ProcessGraphlet(G, V, Varray, perm, g, k);
     }
-	if (_sampleMethod == SAMPLE_MCMC)
-		finalizeMCMC();
+	if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION)
+		finalizeConcentrations();
     switch(_outputMode)
     {
 	int canon;
@@ -1142,7 +1151,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break; // already output on-the-fly above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
-	if (_sampleMethod == SAMPLE_MCMC) {
+	if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION) {
 		BuildGraph(g, _canonList[canon]);
 		if (TinyGraphDFSConnected(g, 0))
 			printf("%lf %d\n", _graphletConcentration[canon], canon);
