@@ -1066,10 +1066,12 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    ++_graphletCount[GintCanon];
 		if (_sampleMethod == SAMPLE_NODE_EXPANSION) {
 			double multiplier = 1.0;
-			int i;
+			int i, internalDegree = 0;
 			for (i = 0; i < k; i++) {
-				multiplier *= G->degree[Varray[i]];
+				multiplier += G->degree[Varray[i]];
+				internalDegree += g->degree[i];
 			}
+			multiplier -= 2.0 * internalDegree;
 			_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
 		}
 	    break;
