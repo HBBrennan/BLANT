@@ -348,7 +348,9 @@ void createDotfileFromBit(const Graphette2DotParams& params) {
 			string nodeName;
 			while (std::getline(infile, nodeName) && i < params.k) {
 				outfile << 'n' << i << " [label=\"" << nodeName;
+				//outfile << 'n' << i << " [label=<<B>" << nodeName << "</B>";
 				if (params.showOrbits)
+				//outfile << "<BR />" << "<I>" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0] << "</I>";
 					outfile << "\\n" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0];
 				outfile << "\"";
 				if (params.outputMode == OutputMode::circular)
@@ -374,8 +376,10 @@ void createDotfileFromBit(const Graphette2DotParams& params) {
 		}
 	}
 	while (i < params.k) {
-		outfile << 'n' << i << "[label=\"" << i;
+		outfile << 'n' << i << "[label=\"" << static_cast<char>('s' + i);
+		//outfile << 'n' << i << " [label=<<B>" << nodeName << "</B>";
 		if (params.showOrbits)
+			//outfile << "<BR />" << "<I>" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0] << "</I>";
 			outfile << "\\n" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0];
 		outfile << "\"";
 		if (params.outputMode == OutputMode::circular)
